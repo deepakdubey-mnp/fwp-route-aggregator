@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: fwp-route-aggregator
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:fwf_demo_db}
+    username: ${DB_USERNAME:myuser}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+
+routes:
+  cache:
+    ttl: PT5M
+  provider:
+    one-base-url: ${PROVIDER1_BASE_URL:https://4r5rvu2fcydfzr5gymlhcsnfem0lyxoe.lambda-url.eu-central-1.on.aws/provider/flights1}
+    two-base-url: ${PROVIDER2_BASE_URL:https://4r5rvu2fcydfzr5gymlhcsnfem0lyxoe.lambda-url.eu-central-1.on.aws/provider/flights2}
+    connect-timeout: PT3S
+    read-timeout: PT15S
+    retry:
+      max-attempts: 3
+      wait-duration: PT0.5S
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.fwp: DEBUG
