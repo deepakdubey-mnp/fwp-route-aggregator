@@ -26,6 +26,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'software.amazon.msk:aws-msk-iam-auth:2.2.0'
     compileOnly 'org.projectlombok:lombok'
@@ -46,6 +47,13 @@ hibernate {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.named('bootRun') {
+    // Automatically activate the local profile when running via Gradle.
+    // Override with: SPRING_PROFILES_ACTIVE=prod ./gradlew bootRun
+    systemProperty 'spring.profiles.active',
+            System.getenv('SPRING_PROFILES_ACTIVE') ?: 'local'
 }
 
 tasks.named('bootBuildImage') {

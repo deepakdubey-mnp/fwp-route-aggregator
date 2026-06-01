@@ -2,13 +2,13 @@ spring:
   application:
     name: fwp-route-aggregator
 
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
-    properties:
-      security.protocol: SASL_SSL
-      sasl.mechanism: AWS_MSK_IAM
-      sasl.jaas.config: "software.amazon.msk.auth.iam.IAMLoginModule required;"
-      sasl.client.callback.handler.class: software.amazon.msk.auth.iam.IAMClientCallbackHandler
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -18,31 +18,8 @@ spring:
       application-id: fwp-route-aggregator
       replication-factor: 1
 
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:fwf_demo_db}
-    username: ${DB_USERNAME:myuser}
-    password: ${DB_PASSWORD:changeme}
-    hikari:
-      initialization-fail-timeout: -1  # don't block startup if RDS is unreachable
-
-  jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect  # skip JDBC metadata lookup
-    hibernate:
-      ddl-auto: none
-    open-in-view: false
-
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-
-
-kafka:
-  enabled: ${KAFKA_ENABLED:false}
-
 routes:
-  cache:
-    ttl: PT5M
+  redis-key: ${ROUTES_REDIS_KEY:routes}
   provider:
     one-base-url: ${PROVIDER1_BASE_URL:https://4r5rvu2fcydfzr5gymlhcsnfem0lyxoe.lambda-url.eu-central-1.on.aws/provider/flights1}
     two-base-url: ${PROVIDER2_BASE_URL:https://4r5rvu2fcydfzr5gymlhcsnfem0lyxoe.lambda-url.eu-central-1.on.aws/provider/flights2}

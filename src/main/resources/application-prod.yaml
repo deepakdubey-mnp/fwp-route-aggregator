@@ -1,0 +1,30 @@
+# Production (ECS Fargate) profile — all values injected via ECS task definition env vars.
+# Activated by ECS task definition: SPRING_PROFILES_ACTIVE=prod
+
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP}
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: AWS_MSK_IAM
+      sasl.jaas.config: "software.amazon.msk.auth.iam.IAMLoginModule required;"
+      sasl.client.callback.handler.class: software.amazon.msk.auth.iam.IAMClientCallbackHandler
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME:fwf_demo_db}
+    username: ${DB_USERNAME:fwfadmin}
+    password: ${DB_PASSWORD}   # injected from Secrets Manager via ECS secrets
+    hikari:
+      initialization-fail-timeout: -1
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+
+kafka:
+  enabled: true   # MSK Serverless is always available on ECS
+
+logging:
+  level:
+    org.fwp: INFO   # reduce verbosity in production

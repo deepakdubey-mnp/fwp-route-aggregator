@@ -1,0 +1,24 @@
+# Local development profile — Kafka, Redis, and Postgres running on localhost.
+# Activate with: SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
+# (or set automatically via bootRun task in build.gradle)
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    properties:
+      security.protocol: PLAINTEXT   # no SASL/SSL needed for local Kafka
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/fwf_demo_db
+    username: myuser
+    password: changeme
+    hikari:
+      initialization-fail-timeout: -1
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+kafka:
+  enabled: true   # local Kafka is running — enable the producer
