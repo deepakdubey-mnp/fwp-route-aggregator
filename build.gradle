@@ -26,11 +26,14 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'software.amazon.msk:aws-msk-iam-auth:2.2.0'
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
@@ -43,4 +46,11 @@ hibernate {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.named('bootBuildImage') {
+    // ECS Fargate runs on AMD64; pin here so Mac (ARM64) builds are also correct
+    imagePlatform = 'linux/amd64'
+    // GraalVM native compilation is done via nativeCompile; keep the OCI image JVM-based
+    environment['BP_NATIVE_IMAGE'] = 'false'
 }
