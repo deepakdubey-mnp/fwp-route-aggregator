@@ -3,7 +3,7 @@ spring:
     name: fwp-route-aggregator
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9098}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
     properties:
       security.protocol: SASL_SSL
       sasl.mechanism: AWS_MSK_IAM

@@ -69,13 +69,25 @@ jobs:
           docker push "${{ steps.tags.outputs.versioned }}"
           docker push "${{ steps.tags.outputs.latest }}"
 
-      - name: Fetch current ECS task definition
+      - name: Fetch current ECS task definition (or use base template)
+        env:
+          EXECUTION_ROLE_ARN: ${{ secrets.ECS_EXECUTION_ROLE_ARN }}
+          TASK_ROLE_ARN: ${{ secrets.ECS_TASK_ROLE_ARN }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          MSK_BOOTSTRAP: ${{ secrets.MSK_BOOTSTRAP }}
+          DB_PASSWORD_SECRET_ARN: ${{ secrets.DB_PASSWORD_SECRET_ARN }}
         run: |
-          aws ecs describe-task-definition \
+          set -eo pipefail
+
+          TASK_DEF_JSON=$(aws ecs describe-task-definition \
             --task-definition airlines-aggregator \
             --query taskDefinition \
-            --output json \
-          | jq 'del(
+            --output json 2>/dev/null || true)
+
+          if [ -n "$TASK_DEF_JSON" ]; then
+            echo "Found existing task definition — stripping dynamic fields"
+            echo "$TASK_DEF_JSON" | jq 'del(
               .taskDefinitionArn,
               .revision,
               .status,
@@ -84,6 +96,20 @@ jobs:
               .registeredAt,
               .registeredBy
             )' > task-definition.json
+          else
+            echo "Task definition not found in AWS — using base template (first deploy)"
+            sed \
+              -e "s|__EXECUTION_ROLE_ARN__|${EXECUTION_ROLE_ARN}|g" \
+              -e "s|__TASK_ROLE_ARN__|${TASK_ROLE_ARN}|g" \
+              -e "s|__REDIS_HOST__|${REDIS_HOST}|g" \
+              -e "s|__DB_HOST__|${DB_HOST}|g" \
+              -e "s|__MSK_BOOTSTRAP__|${MSK_BOOTSTRAP}|g" \
+              -e "s|__DB_PASSWORD_SECRET_ARN__|${DB_PASSWORD_SECRET_ARN}|g" \
+              .github/task-definition-base.json > task-definition.json
+          fi
+
+          echo "--- task-definition.json (truncated) ---"
+          jq '.containerDefinitions[0].image, .executionRoleArn' task-definition.json
 
       - name: Render new task definition with updated image
         id: task-def
