@@ -1,0 +1,48 @@
+{
+  "family": "airlines-aggregator",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "__EXECUTION_ROLE_ARN__",
+  "taskRoleArn": "__TASK_ROLE_ARN__",
+  "containerDefinitions": [
+    {
+      "name": "airlines-aggregator",
+      "image": "placeholder",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "prod" },
+        { "name": "SERVER_PORT",            "value": "8080" },
+        { "name": "REDIS_HOST",             "value": "__REDIS_HOST__" },
+        { "name": "REDIS_PORT",             "value": "6379" },
+        { "name": "DB_HOST",                "value": "__DB_HOST__" },
+        { "name": "DB_PORT",                "value": "5432" },
+        { "name": "DB_NAME",                "value": "fwf_demo_db" },
+        { "name": "DB_USERNAME",            "value": "fwfadmin" },
+        { "name": "KAFKA_BOOTSTRAP",        "value": "__MSK_BOOTSTRAP__" },
+        { "name": "JAVA_TOOL_OPTIONS",      "value": "-Xmx96m -XX:+UseSerialGC" }
+      ],
+      "secrets": [
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "__DB_PASSWORD_SECRET_ARN__"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":         "/fwf-demo/ecs/airlines-aggregator",
+          "awslogs-region":        "ap-south-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
