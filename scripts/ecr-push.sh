@@ -22,7 +22,7 @@ set -euo pipefail
 # ── Config (mirrors .github/workflows/deploy.yml env block) ──────────────────
 AWS_REGION="ap-south-2"
 ECR_REPOSITORY="fun-with-flights/airlines-aggregator"
-ECS_CLUSTER="fwf-demo-cluster"
+ECS_CLUSTER="fun-with-flights-fwf-demo-cluster"
 ECS_SERVICE="airlines-aggregator-svc"
 CONTAINER_NAME="airlines-aggregator"
 TASK_FAMILY="airlines-aggregator"
@@ -116,12 +116,48 @@ else
     --region "${AWS_REGION}" \
     --task-definition "${TASK_FAMILY}" \
     --query taskDefinition \
-    --output json 2>/dev/null) || {
-    echo "Error: Could not fetch task definition '${TASK_FAMILY}'."
-    echo "       If this is the first deploy, register an initial task definition in the AWS console"
-    echo "       or run the CI pipeline once to bootstrap it."
-    exit 1
-  }
+    --output json 2>/dev/null || true)
+
+  if [ -z "${TASK_DEF_JSON}" ]; then
+    echo "    No existing task definition — bootstrapping from base template..."
+    BASE_TEMPLATE=".github/task-definition-base.json"
+    if [ ! -f "${BASE_TEMPLATE}" ]; then
+      echo "Error: ${BASE_TEMPLATE} not found. Cannot bootstrap first deploy."
+      exit 1
+    fi
+
+    EXEC_ROLE_ARN=$(aws iam list-roles \
+      --query "Roles[?contains(RoleName,'ecs-execution')].Arn" --output text | awk '{print $1}')
+    TASK_ROLE_ARN=$(aws iam list-roles \
+      --query "Roles[?contains(RoleName,'ecs-task')].Arn" --output text | awk '{print $1}')
+    REDIS_HOST=$(aws elasticache describe-cache-clusters --region "${AWS_REGION}" \
+      --show-cache-node-info \
+      --query "CacheClusters[0].CacheNodes[0].Endpoint.Address" --output text)
+    DB_HOST=$(aws rds describe-db-instances --region "${AWS_REGION}" \
+      --query "DBInstances[0].Endpoint.Address" --output text)
+    MSK_ARN=$(aws kafka list-clusters-v2 --region "${AWS_REGION}" \
+      --query "ClusterInfoList[0].ClusterArn" --output text)
+    MSK_BOOTSTRAP=$(aws kafka get-bootstrap-brokers --region "${AWS_REGION}" \
+      --cluster-arn "${MSK_ARN}" --query "BootstrapBrokerStringSaslIam" --output text)
+    DB_SECRET_ARN=$(aws secretsmanager list-secrets --region "${AWS_REGION}" \
+      --query "SecretList[?contains(Name,'/fwf-demo/rds')].ARN" --output text | awk '{print $1}')
+
+    echo "    Exec role : ${EXEC_ROLE_ARN}"
+    echo "    Task role : ${TASK_ROLE_ARN}"
+    echo "    Redis     : ${REDIS_HOST}"
+    echo "    DB        : ${DB_HOST}"
+    echo "    MSK       : ${MSK_BOOTSTRAP}"
+    echo "    DB secret : ${DB_SECRET_ARN}"
+
+    TASK_DEF_JSON=$(sed \
+      -e "s|__EXECUTION_ROLE_ARN__|${EXEC_ROLE_ARN}|g" \
+      -e "s|__TASK_ROLE_ARN__|${TASK_ROLE_ARN}|g" \
+      -e "s|__REDIS_HOST__|${REDIS_HOST}|g" \
+      -e "s|__DB_HOST__|${DB_HOST}|g" \
+      -e "s|__MSK_BOOTSTRAP__|${MSK_BOOTSTRAP}|g" \
+      -e "s|__DB_PASSWORD_SECRET_ARN__|${DB_SECRET_ARN}|g" \
+      "${BASE_TEMPLATE}")
+  fi
 
   # Strip read-only fields that must not be sent to RegisterTaskDefinition
   echo "==> Rendering new task definition with image ${VERSIONED_TAG}..."

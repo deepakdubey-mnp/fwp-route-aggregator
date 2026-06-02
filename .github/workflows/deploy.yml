@@ -7,7 +7,7 @@ on:
 env:
   AWS_REGION: ap-south-2
   ECR_REPOSITORY: fun-with-flights/airlines-aggregator
-  ECS_CLUSTER: fwf-demo-cluster
+  ECS_CLUSTER: fun-with-flights-fwf-demo-cluster
   ECS_SERVICE: airlines-aggregator-svc
   CONTAINER_NAME: airlines-aggregator
 
