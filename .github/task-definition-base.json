@@ -32,7 +32,7 @@
       "secrets": [
         {
           "name": "DB_PASSWORD",
-          "valueFrom": "__DB_PASSWORD_SECRET_ARN__"
+          "valueFrom": "__DB_PASSWORD_SECRET_ARN__:password::"
         }
       ],
       "logConfiguration": {
