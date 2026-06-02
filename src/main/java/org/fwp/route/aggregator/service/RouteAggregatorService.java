@@ -1,25 +1,20 @@
 package org.fwp.route.aggregator.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.fwp.route.aggregator.entity.RouteEntity;
 import org.fwp.route.aggregator.kafka.RoutePublisher;
 import org.fwp.route.aggregator.model.Route;
 import org.fwp.route.aggregator.provider.RouteProvider;
+import org.fwp.route.aggregator.repository.RouteRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.Cursor;
-import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.ScanOptions;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -35,71 +30,37 @@ import java.util.concurrent.Executor;
 @Service
 public class RouteAggregatorService {
 
-    private final StringRedisTemplate redisTemplate;
-    private final ObjectMapper objectMapper;
+    private final RouteRepository routeRepository;
     private final List<RouteProvider> providers;
     private final Executor providerFetchExecutor;
-    private final String keyPrefix;
     private final RoutePublisher routePublisher;
 
+    private static final int PAGE_SIZE = 100;
+
     public RouteAggregatorService(
-            StringRedisTemplate redisTemplate,
-            ObjectMapper objectMapper,
+            RouteRepository routeRepository,
             List<RouteProvider> providers,
             @Qualifier("providerFetchExecutor") Executor providerFetchExecutor,
-            @Value("${routes.redis-key:routes}") String keyPrefix,
             RoutePublisher routePublisher) {
-        this.redisTemplate = redisTemplate;
-        this.objectMapper = objectMapper;
+        this.routeRepository = routeRepository;
         this.providers = providers;
         this.providerFetchExecutor = providerFetchExecutor;
-        this.keyPrefix = keyPrefix;
         this.routePublisher = routePublisher;
     }
 
-    /**
-     * Reads all routes stored in Redis under keys matching "{keyPrefix}:*".
-     * SCAN is used instead of KEYS to avoid blocking Redis on large keyspaces.
-     */
-    public List<Route> getRoutes() {
-        String pattern = keyPrefix + ":*";
-        List<String> rawValues = new ArrayList<>();
-
-        redisTemplate.execute((RedisCallback<Void>) connection -> {
-            ScanOptions options = ScanOptions.scanOptions()
-                    .match(pattern)
-                    .count(200)
-                    .build();
-
-            try (Cursor<byte[]> cursor = connection.keyCommands().scan(options)) {
-                cursor.forEachRemaining(rawKey -> {
-                    String key = new String(rawKey, StandardCharsets.UTF_8);
-                    String value = redisTemplate.opsForValue().get(key);
-                    if (value != null) rawValues.add(value);
-                });
-            }
-            return null;
-        });
-
-        if (rawValues.isEmpty()) {
-            log.warn("No routes found in Redis for pattern [{}]", pattern);
-            return List.of();
-        }
-
-        List<Route> routes = rawValues.stream()
-                .map(json -> {
-                    try {
-                        return objectMapper.readValue(json, Route.class);
-                    } catch (Exception e) {
-                        log.warn("Skipping malformed route entry: {}", e.getMessage());
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
+    @Cacheable(value = "routes", key = "#page", unless = "#result.isEmpty()")
+    public List<Route> getRoutes(int page) {
+        List<Route> routes = routeRepository
+                .findAllByOrderByDepartureTimeDesc(PageRequest.of(page, PAGE_SIZE))
+                .map(RouteAggregatorService::toRoute)
                 .toList();
-
-        log.info("Read {} route(s) from Redis pattern [{}]", routes.size(), pattern);
+        log.info("Read {} route(s) from Postgres [page={}, size={}]", routes.size(), page, PAGE_SIZE);
         return routes;
+    }
+
+    private static Route toRoute(RouteEntity e) {
+        return new Route(e.getAirline(), e.getSourceAirport(), e.getDestinationAirport(),
+                e.getCodeShare(), e.getStops(), e.getEquipment(), e.getDepartureTime());
     }
 
     /**

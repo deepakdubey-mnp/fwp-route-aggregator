@@ -17,6 +17,8 @@ spring:
 
 routes:
   redis-key: ${ROUTES_REDIS_KEY:routes}
+  cache:
+    ttl: PT1M
   provider:
     one-base-url: ${PROVIDER1_BASE_URL:https://4r5rvu2fcydfzr5gymlhcsnfem0lyxoe.lambda-url.eu-central-1.on.aws/provider/flights1}
     two-base-url: ${PROVIDER2_BASE_URL:https://4r5rvu2fcydfzr5gymlhcsnfem0lyxoe.lambda-url.eu-central-1.on.aws/provider/flights2}
@@ -34,6 +36,14 @@ management:
   endpoint:
     health:
       show-details: always
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui
+    operations-sorter: alpha
+    tags-sorter: alpha
 
 logging:
   level:

@@ -11,7 +11,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/fwf_demo_db
     username: myuser
-    password: changeme
+    password: secret
     hikari:
       initialization-fail-timeout: -1
 

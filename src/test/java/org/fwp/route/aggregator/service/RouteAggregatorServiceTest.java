@@ -1,18 +1,18 @@
 package org.fwp.route.aggregator.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.fwp.route.aggregator.kafka.NoOpRoutePublisher;
 import org.fwp.route.aggregator.kafka.RoutePublisher;
 import org.fwp.route.aggregator.model.Route;
 import org.fwp.route.aggregator.provider.RouteProvider;
+import org.fwp.route.aggregator.repository.RouteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.Executors;
 
@@ -26,14 +26,14 @@ class RouteAggregatorServiceTest {
     @Mock RouteProvider provider1;
     @Mock RouteProvider provider2;
     @Mock RoutePublisher routePublisher;
-    @Mock StringRedisTemplate redisTemplate;
+    @Mock RouteRepository routeRepository;
 
     private RouteAggregatorService service;
 
-    private static final Route BOM_DEL  = new Route("AI", "BOM", "DEL", null, 0, "320");
-    private static final Route DEL_BOM  = new Route("6E", "DEL", "BOM", null, 0, "737");
+    private static final Route BOM_DEL  = new Route("AI", "BOM", "DEL", null, 0, "320", LocalDateTime.now());
+    private static final Route DEL_BOM  = new Route("6E", "DEL", "BOM", null, 0, "737",LocalDateTime.now());
     // Same composite key as BOM_DEL (airline+source+dest+stops match); only codeShare differs
-    private static final Route DUPLICATE = new Route("AI", "BOM", "DEL", "Y", 0, "321");
+    private static final Route DUPLICATE = new Route("AI", "BOM", "DEL", "Y", 0, "321", LocalDateTime.now());
 
     @BeforeEach
     void setUp() {
@@ -42,11 +42,9 @@ class RouteAggregatorServiceTest {
         lenient().when(provider2.name()).thenReturn("provider-2");
 
         service = new RouteAggregatorService(
-                redisTemplate,
-                new ObjectMapper(),
+                routeRepository,
                 List.of(provider1, provider2),
                 Executors.newVirtualThreadPerTaskExecutor(),
-                "routes",
                 routePublisher
         );
     }
@@ -152,11 +150,9 @@ class RouteAggregatorServiceTest {
             lenient().when(p2.name()).thenReturn("p2");
 
             RouteAggregatorService noOpService = new RouteAggregatorService(
-                    mock(StringRedisTemplate.class),
-                    new ObjectMapper(),
+                    mock(RouteRepository.class),
                     List.of(p1, p2),
                     Executors.newVirtualThreadPerTaskExecutor(),
-                    "routes",
                     new NoOpRoutePublisher()
             );
 

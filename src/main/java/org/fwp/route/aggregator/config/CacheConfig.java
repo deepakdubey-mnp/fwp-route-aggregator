@@ -2,9 +2,19 @@ package org.fwp.route.aggregator.config;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+
+import java.time.Duration;
 
 /**
  * CacheConfig — Spring configuration class for cache-layer infrastructure beans.
@@ -30,6 +40,7 @@ import org.springframework.context.annotation.Configuration;
  * policies. That complexity can be added here when required.
  */
 @Configuration
+@EnableCaching
 public class CacheConfig {
 
     /**
@@ -53,5 +64,29 @@ public class CacheConfig {
     public ObjectMapper objectMapper() {
         return new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
+
+    @Bean
+    public RedisCacheManager cacheManager(
+            RedisConnectionFactory connectionFactory,
+            @Value("${routes.cache.ttl:PT1M}") Duration ttl) {
+
+        var serializer = GenericJacksonJsonRedisSerializer.builder()
+                .enableDefaultTyping(BasicPolymorphicTypeValidator.builder()
+                        .allowIfSubType("org.fwp.route.aggregator")
+                        .allowIfSubType("java.util")
+                        .allowIfSubType("java.lang")
+                        .build())
+                .build();
+
+        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(ttl)
+                .disableCachingNullValues()
+                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(serializer));
+
+        return RedisCacheManager.builder(connectionFactory)
+                .cacheDefaults(config)
+                .build();
     }
 }
