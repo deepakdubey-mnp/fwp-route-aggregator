@@ -2,23 +2,23 @@ package org.fwp.route.aggregator.kafka;
 
 import lombok.extern.slf4j.Slf4j;
 import org.fwp.route.aggregator.model.Route;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 /**
- * Null-object adapter — active when no real RoutePublisher is wired
- * (i.e. kafka.enabled=false and no webhook configured).
+ * Null-object adapter — active when kafka.enabled is false or not set.
  *
- * Eliminates the nullable RouteEventProducer field and the null guard
- * in RouteAggregatorService. The service always has a non-null publisher;
- * enabling/disabling Kafka is an infrastructure concern resolved at startup,
- * not a runtime conditional in business logic.
+ * Mirrors RouteEventProducer's @ConditionalOnProperty exactly (inverse value,
+ * matchIfMissing=true) so the two are mutually exclusive and Spring's bean
+ * scanning order never leaves RoutePublisher unsatisfied.
+ *
+ * Eliminates the nullable field + null guard that was in RouteAggregatorService.
  */
 @Slf4j
 @Component
-@ConditionalOnMissingBean(RoutePublisher.class)
+@ConditionalOnProperty(name = "kafka.enabled", havingValue = "false", matchIfMissing = true)
 public class NoOpRoutePublisher implements RoutePublisher {
 
     @Override
