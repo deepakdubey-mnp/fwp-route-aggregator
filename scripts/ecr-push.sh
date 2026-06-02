@@ -178,12 +178,16 @@ else
       )
   ')
 
-  # Register the new revision
-  NEW_TASK_DEF_ARN=$(echo "${NEW_TASK_DEF}" | aws ecs register-task-definition \
+  # Register the new revision — write to a temp file; file:///dev/stdin is
+  # unreliable on macOS with the AWS CLI
+  TASK_DEF_TMP=$(mktemp /tmp/task-def-XXXXXX.json)
+  echo "${NEW_TASK_DEF}" > "${TASK_DEF_TMP}"
+  NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
     --region "${AWS_REGION}" \
-    --cli-input-json file:///dev/stdin \
+    --cli-input-json "file://${TASK_DEF_TMP}" \
     --query taskDefinition.taskDefinitionArn \
     --output text)
+  rm -f "${TASK_DEF_TMP}"
   echo "    Registered : ${NEW_TASK_DEF_ARN}"
 
   # Update the service to use the new task definition revision
