@@ -84,33 +84,36 @@ ECR_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}"
 VERSIONED_TAG="${ECR_IMAGE}:${IMAGE_TAG}"
 LATEST_TAG="${ECR_IMAGE}:latest"
 
-# ── Build JAR then Docker image ───────────────────────────────────────────────
-# Using docker build (Dockerfile) instead of bootBuildImage (Paketo Buildpacks).
-# Paketo's CNB launcher intermittently fails with "java not found in $PATH" on
-# Fargate cold starts due to layer-mount timing; a plain Dockerfile with
-# eclipse-temurin:25-jre-noble is more reliable and faster to build.
+# ── Build JAR ─────────────────────────────────────────────────────────────────
 echo ""
 echo "==> Building JAR..."
 ./gradlew bootJar
 
-echo "==> Building Docker image (linux/amd64)..."
-echo "    Target : ${VERSIONED_TAG}"
-docker build --platform linux/amd64 -t "${VERSIONED_TAG}" .
-
-# ── Login to ECR ──────────────────────────────────────────────────────────────
+# ── Login to ECR (before docker build — buildx --push needs auth up front) ───
 echo ""
 echo "==> Logging in to ECR (${ECR_REGISTRY})..."
 aws ecr get-login-password --region "${AWS_REGION}" \
   | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
-# ── Tag and push ──────────────────────────────────────────────────────────────
+# ── Build and push Docker image ───────────────────────────────────────────────
+# Using docker build (Dockerfile) instead of bootBuildImage (Paketo Buildpacks).
+# Paketo's CNB launcher intermittently fails with "java not found in $PATH" on
+# Fargate cold starts due to layer-mount timing; a plain Dockerfile with
+# eclipse-temurin:25-jre-noble is more reliable and faster to build.
+#
+# On Apple Silicon (arm64) we use buildx with --platform linux/amd64 to produce
+# the correct amd64 image for Fargate. The docker-container buildx driver does
+# not load into the local daemon so we push both tags during the build itself.
 echo ""
-echo "==> Pushing ${VERSIONED_TAG}..."
-docker push "${VERSIONED_TAG}"
-
-echo "==> Tagging and pushing :latest..."
-docker tag "${VERSIONED_TAG}" "${LATEST_TAG}"
-docker push "${LATEST_TAG}"
+echo "==> Building and pushing Docker image (linux/amd64)..."
+echo "    Versioned : ${VERSIONED_TAG}"
+echo "    Latest    : ${LATEST_TAG}"
+docker buildx build \
+  --platform linux/amd64 \
+  --push \
+  -t "${VERSIONED_TAG}" \
+  -t "${LATEST_TAG}" \
+  .
 
 # ── ECS deploy ────────────────────────────────────────────────────────────────
 if [ "${SKIP_DEPLOY}" = "true" ]; then
