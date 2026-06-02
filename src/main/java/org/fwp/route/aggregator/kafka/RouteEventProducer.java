@@ -7,15 +7,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SaslConfigs;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.fwp.route.aggregator.model.Route;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -99,6 +102,12 @@ class RouteKafkaTemplateConfig {
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.ACKS_CONFIG, "all");
         config.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        // MSK Serverless drops idle connections after ~10 min; close client-side first
+        // so the producer never holds a dead socket and reconnects cleanly.
+        config.put(ProducerConfig.CONNECTIONS_MAX_IDLE_MS_CONFIG, 540_000L);  // 9 min
+        config.put(ProducerConfig.RECONNECT_BACKOFF_MS_CONFIG, 1_000L);
+        config.put(ProducerConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG, 10_000L);
+        config.put(ProducerConfig.METADATA_MAX_AGE_CONFIG, 300_000L);          // 5 min
 
         if (!securityProtocol.isBlank()) {
             config.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol);
@@ -119,5 +128,17 @@ class RouteKafkaTemplateConfig {
     @Bean
     KafkaTemplate<String, String> routeKafkaTemplate(ProducerFactory<String, String> routeProducerFactory) {
         return new KafkaTemplate<>(routeProducerFactory);
+    }
+
+    // KafkaAdmin (auto-configured from spring.kafka.*) calls createOrModifyTopics() on startup.
+    // MSK Serverless has auto.create.topics.enable=false, so we must declare the topic explicitly.
+    // RF=3 + min.insync.replicas=2 satisfies acks=all on MSK Serverless (3 brokers by default).
+    @Bean
+    NewTopic routesTopic() {
+        return TopicBuilder.name(RouteEventProducer.TOPIC)
+                .partitions(3)
+                .replicas(3)
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "2")
+                .build();
     }
 }

@@ -8,9 +8,12 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: "false"
-    streams:
-      application-id: fwp-route-aggregator
-      replication-factor: 1
+    admin:
+      fail-fast: false   # topic creation failure logs a warning but doesn't abort startup
+      properties:
+        connections.max.idle.ms: 540000
+        reconnect.backoff.ms: 1000
+        reconnect.backoff.max.ms: 10000
 
 routes:
   redis-key: ${ROUTES_REDIS_KEY:routes}
