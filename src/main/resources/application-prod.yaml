@@ -25,6 +25,17 @@ spring:
 kafka:
   enabled: true   # MSK Serverless is always available on ECS
 
+management:
+  health:
+    # Kafka and Redis failures are handled gracefully by the service already.
+    # Letting their health indicators return DOWN would cause the ALB health
+    # check to 503 and ECS to kill the task — exactly the wrong behaviour.
+    # Only DB connectivity (HikariCP) drives the overall UP/DOWN here.
+    kafka:
+      enabled: false
+    redis:
+      enabled: false
+
 logging:
   level:
     org.fwp: INFO   # reduce verbosity in production

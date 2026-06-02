@@ -84,11 +84,18 @@ ECR_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}"
 VERSIONED_TAG="${ECR_IMAGE}:${IMAGE_TAG}"
 LATEST_TAG="${ECR_IMAGE}:latest"
 
-# ── Build OCI image (linux/amd64 — matches ECS Fargate task architecture) ────
+# ── Build JAR then Docker image ───────────────────────────────────────────────
+# Using docker build (Dockerfile) instead of bootBuildImage (Paketo Buildpacks).
+# Paketo's CNB launcher intermittently fails with "java not found in $PATH" on
+# Fargate cold starts due to layer-mount timing; a plain Dockerfile with
+# eclipse-temurin:25-jre-noble is more reliable and faster to build.
 echo ""
-echo "==> Building OCI image..."
+echo "==> Building JAR..."
+./gradlew bootJar
+
+echo "==> Building Docker image (linux/amd64)..."
 echo "    Target : ${VERSIONED_TAG}"
-./gradlew bootBuildImage --imageName="${VERSIONED_TAG}"
+docker build --platform linux/amd64 -t "${VERSIONED_TAG}" .
 
 # ── Login to ECR ──────────────────────────────────────────────────────────────
 echo ""
