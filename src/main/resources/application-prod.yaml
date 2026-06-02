@@ -10,13 +10,6 @@ spring:
       sasl.jaas.config: "software.amazon.msk.auth.iam.IAMLoginModule required;"
       sasl.client.callback.handler.class: software.amazon.msk.auth.iam.IAMClientCallbackHandler
 
-  datasource:
-    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME:fwf_demo_db}
-    username: ${DB_USERNAME:fwfadmin}
-    password: ${DB_PASSWORD}   # injected from Secrets Manager via ECS secrets
-    hikari:
-      initialization-fail-timeout: -1
-
   data:
     redis:
       host: ${REDIS_HOST}
@@ -27,10 +20,6 @@ kafka:
 
 management:
   health:
-    # Kafka and Redis failures are handled gracefully by the service already.
-    # Letting their health indicators return DOWN would cause the ALB health
-    # check to 503 and ECS to kill the task — exactly the wrong behaviour.
-    # Only DB connectivity (HikariCP) drives the overall UP/DOWN here.
     kafka:
       enabled: false
     redis:

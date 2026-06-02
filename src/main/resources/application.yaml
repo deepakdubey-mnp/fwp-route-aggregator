@@ -2,12 +2,6 @@ spring:
   application:
     name: fwp-route-aggregator
 
-  jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
-    hibernate:
-      ddl-auto: none
-    open-in-view: false
-
   kafka:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
