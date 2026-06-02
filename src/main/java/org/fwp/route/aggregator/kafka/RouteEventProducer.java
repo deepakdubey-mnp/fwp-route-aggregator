@@ -26,14 +26,15 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "kafka.enabled", havingValue = "true")
-public class RouteEventProducer {
+public class RouteEventProducer implements RoutePublisher {
 
     public static final String TOPIC = "routes";
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
-    public void publishRoutes(List<Route> routes) {
+    @Override
+    public void publish(List<Route> routes) {
         log.debug("Publishing {} route(s) to topic [{}]", routes.size(), TOPIC);
         routes.forEach(route -> {
             String payload;
@@ -58,6 +59,11 @@ public class RouteEventProducer {
                         }
                     });
         });
+    }
+
+    @Override
+    public String destination() {
+        return "kafka:" + TOPIC;
     }
 
     /**
